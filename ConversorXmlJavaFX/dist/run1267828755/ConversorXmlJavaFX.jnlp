@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<jnlp spec="1.0" xmlns:jfx="http://javafx.com" href="ConversorXmlJavaFX.jnlp">
+  <information>
+    <title>ConversorXmlJavaFX</title>
+    <vendor>reyes</vendor>
+    <description>null</description>
+    <offline-allowed/>
+  </information>
+  <resources>
+    <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
+    <jar href="ConversorXmlJavaFX.jar" size="6030" download="eager" />
+    <jar href="lib\commons-collections4-4.4.jar" size="751914" download="eager" />
+    <jar href="lib\commons-compress-1.21.jar" size="1018316" download="eager" />
+    <jar href="lib\commons-io-2.15.1.jar" size="501218" download="eager" />
+    <jar href="lib\curvesapi-1.06.jar" size="111875" download="eager" />
+    <jar href="lib\log4j-api-2.24.3.jar" size="348513" download="eager" />
+    <jar href="lib\log4j-core-2.24.3.jar" size="1914666" download="eager" />
+    <jar href="lib\poi-5.2.3.jar" size="2964641" download="eager" />
+    <jar href="lib\poi-ooxml-5.2.3.jar" size="2010497" download="eager" />
+    <jar href="lib\xmlbeans-5.1.1.jar" size="2196526" download="eager" />
+  </resources>
+  <applet-desc  width="800" height="600" main-class="com.javafx.main.NoJavaFXFallback"  name="ConversorXmlJavaFX" >
+    <param name="requiredFXVersion" value="8.0+"/>
+  </applet-desc>
+  <jfx:javafx-desc  width="800" height="600" main-class="conversorxmljavafx.ConversorXmlJavaFX"  name="ConversorXmlJavaFX" />
+  <update check="always"/>
+</jnlp>

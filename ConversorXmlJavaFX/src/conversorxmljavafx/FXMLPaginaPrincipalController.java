@@ -82,7 +82,7 @@ public class FXMLPaginaPrincipalController implements Initializable {
      * IMPORTANTE: Cada concepto del CFDI se muestra en una fila diferente,
      * colocando en la columna "Concepto" solamente la descripción del concepto.
      */
-    private void procesarXMLyExportarCSV(File xmlFile) {
+       private void procesarXMLyExportarCSV(File xmlFile) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
@@ -96,7 +96,7 @@ public class FXMLPaginaPrincipalController implements Initializable {
                 return;
             }
 
-            // Extraer atributos de <cfdi:Comprobante>
+            // Extraer atributos del comprobante
             String version = comprobante.getAttribute("Version");
             String serie = comprobante.getAttribute("Serie");
             String folio = comprobante.getAttribute("Folio");
@@ -112,13 +112,13 @@ public class FXMLPaginaPrincipalController implements Initializable {
             String metodoPago = comprobante.getAttribute("MetodoPago");
             String lugarExpedicion = comprobante.getAttribute("LugarExpedicion");
 
-            // Extraer atributos de <cfdi:Emisor>
+            // Extraer datos del emisor
             Element emisor = (Element) doc.getElementsByTagName("cfdi:Emisor").item(0);
             String rfcEmisor = emisor != null ? emisor.getAttribute("Rfc") : "";
             String nombreEmisor = emisor != null ? emisor.getAttribute("Nombre") : "";
             String regimenFiscal = emisor != null ? emisor.getAttribute("RegimenFiscal") : "";
 
-            // Extraer atributos de <cfdi:Receptor>
+            // Extraer datos del receptor
             Element receptor = (Element) doc.getElementsByTagName("cfdi:Receptor").item(0);
             String rfcReceptor = receptor != null ? receptor.getAttribute("Rfc") : "";
             String nombreReceptor = receptor != null ? receptor.getAttribute("Nombre") : "";
@@ -126,27 +126,32 @@ public class FXMLPaginaPrincipalController implements Initializable {
             String regimenFiscalReceptor = receptor != null ? receptor.getAttribute("RegimenFiscalReceptor") : "";
             String usoCFDI = receptor != null ? receptor.getAttribute("UsoCFDI") : "";
 
-            // Extraer datos de <cfdi:TimbreFiscalDigital>
-            Element timbre = (Element) doc.getElementsByTagName("cfdi:TimbreFiscalDigital").item(0);
+            // Extraer datos del timbre fiscal
+            NodeList timbres = doc.getElementsByTagNameNS("*", "TimbreFiscalDigital");
+            Element timbre = (timbres.getLength() > 0) ? (Element) timbres.item(0) : null;
             String versionTimbre = timbre != null ? timbre.getAttribute("Version") : "";
             String uuid = timbre != null ? timbre.getAttribute("UUID") : "";
             String fechaTimbrado = timbre != null ? timbre.getAttribute("FechaTimbrado") : "";
             String noCertificadoSAT = timbre != null ? timbre.getAttribute("NoCertificadoSAT") : "";
 
-            // Extraer datos de <cfdi:Impuestos>
+            // Extraer datos de impuestos
             Element impuestos = (Element) doc.getElementsByTagName("cfdi:Impuestos").item(0);
             String totalImpuestosTrasladados = impuestos != null ? impuestos.getAttribute("TotalImpuestosTrasladados") : "";
 
             NodeList traslados = doc.getElementsByTagName("cfdi:Traslado");
-            String base = "", impuesto = "", tipoFactor = "", tasaOCuota = "", importeImpuesto = "";
+            StringBuilder base = new StringBuilder();
+            StringBuilder impuesto = new StringBuilder();
+            StringBuilder tipoFactor = new StringBuilder();
+            StringBuilder tasaOCuota = new StringBuilder();
+            StringBuilder importeImpuesto = new StringBuilder();
 
-            if (traslados.getLength() > 0) {
-                Element traslado = (Element) traslados.item(0);
-                base = traslado.getAttribute("Base");
-                impuesto = traslado.getAttribute("Impuesto");
-                tipoFactor = traslado.getAttribute("TipoFactor");
-                tasaOCuota = traslado.getAttribute("TasaOCuota");
-                importeImpuesto = traslado.getAttribute("Importe");
+            for (int i = 0; i < traslados.getLength(); i++) {
+                Element traslado = (Element) traslados.item(i);
+                base.append(traslado.getAttribute("Base")).append(";");
+                impuesto.append(traslado.getAttribute("Impuesto")).append(";");
+                tipoFactor.append(traslado.getAttribute("TipoFactor")).append(";");
+                tasaOCuota.append(traslado.getAttribute("TasaOCuota")).append(";");
+                importeImpuesto.append(traslado.getAttribute("Importe")).append(";");
             }
 
             // Definir las columnas del CSV
@@ -157,8 +162,6 @@ public class FXMLPaginaPrincipalController implements Initializable {
                 "Rfc Emisor", "Nombre Emisor", "RegimenFiscal Emisor",
                 "Rfc Receptor", "Nombre Receptor", "DomicilioFiscalReceptor",
                 "RegimenFiscalReceptor", "UsoCFDI",
-                "ClaveProdServ", "NoIdentificacion", "Cantidad", "ClaveUnidad",
-                "Unidad", "Descripcion", "ValorUnitario", "Importe Concepto", "ObjetoImp",
                 "Base", "Impuesto", "TipoFactor", "TasaOCuota", "Importe Impuesto",
                 "TotalImpuestosTrasladados",
                 "Version Timbre", "UUID", "FechaTimbrado", "NoCertificadoSAT"
@@ -176,56 +179,40 @@ public class FXMLPaginaPrincipalController implements Initializable {
             }
             csvBuilder.append("\n");
 
-            // Procesar conceptos
-            NodeList conceptos = doc.getElementsByTagName("cfdi:Concepto");
-
-            for (int i = 0; i < conceptos.getLength(); i++) {
-                Element concepto = (Element) conceptos.item(i);
-                String claveProdServ = concepto.getAttribute("ClaveProdServ");
-                String noIdentificacion = concepto.getAttribute("NoIdentificacion");
-                String cantidad = concepto.getAttribute("Cantidad");
-                String claveUnidad = concepto.getAttribute("ClaveUnidad");
-                String unidad = concepto.getAttribute("Unidad");
-                String descripcion = concepto.getAttribute("Descripcion");
-                String valorUnitario = concepto.getAttribute("ValorUnitario");
-                String importeConcepto = concepto.getAttribute("Importe");
-                String objetoImp = concepto.getAttribute("ObjetoImp");
-
-                // Agregar fila al CSV
-                csvBuilder
-                        .append(escapeCSV(version)).append(",")
-                        .append(escapeCSV(serie)).append(",")
-                        .append(escapeCSV(folio)).append(",")
-                        .append(escapeCSV(fecha)).append(",")
-                        .append(escapeCSV(formaPago)).append(",")
-                        .append(escapeCSV(noCertificado)).append(",")
-                        .append(escapeCSV(subTotal)).append(",")
-                        .append(escapeCSV(moneda)).append(",")
-                        .append(escapeCSV(tipoCambio)).append(",")
-                        .append(escapeCSV(total)).append(",")
-                        .append(escapeCSV(tipoDeComprobante)).append(",")
-                        .append(escapeCSV(exportacion)).append(",")
-                        .append(escapeCSV(metodoPago)).append(",")
-                        .append(escapeCSV(lugarExpedicion)).append(",")
-                        .append(escapeCSV(rfcEmisor)).append(",")
-                        .append(escapeCSV(nombreEmisor)).append(",")
-                        .append(escapeCSV(regimenFiscal)).append(",")
-                        .append(escapeCSV(rfcReceptor)).append(",")
-                        .append(escapeCSV(nombreReceptor)).append(",")
-                        .append(escapeCSV(domicilioFiscalReceptor)).append(",")
-                        .append(escapeCSV(regimenFiscalReceptor)).append(",")
-                        .append(escapeCSV(usoCFDI)).append(",")
-                        .append(escapeCSV(claveProdServ)).append(",")
-                        .append(escapeCSV(noIdentificacion)).append(",")
-                        .append(escapeCSV(cantidad)).append(",")
-                        .append(escapeCSV(claveUnidad)).append(",")
-                        .append(escapeCSV(unidad)).append(",")
-                        .append(escapeCSV(descripcion)).append(",")
-                        .append(escapeCSV(valorUnitario)).append(",")
-                        .append(escapeCSV(importeConcepto)).append(",")
-                        .append(escapeCSV(objetoImp)).append(",")
-                        .append("\n");
-            }
+            // Agregar fila al CSV
+            csvBuilder
+                    .append(escapeCSV(version)).append(",")
+                    .append(escapeCSV(serie)).append(",")
+                    .append(escapeCSV(folio)).append(",")
+                    .append(escapeCSV(fecha)).append(",")
+                    .append(escapeCSV(formaPago)).append(",")
+                    .append(escapeCSV(noCertificado)).append(",")
+                    .append(escapeCSV(subTotal)).append(",")
+                    .append(escapeCSV(moneda)).append(",")
+                    .append(escapeCSV(tipoCambio)).append(",")
+                    .append(escapeCSV(total)).append(",")
+                    .append(escapeCSV(tipoDeComprobante)).append(",")
+                    .append(escapeCSV(exportacion)).append(",")
+                    .append(escapeCSV(metodoPago)).append(",")
+                    .append(escapeCSV(lugarExpedicion)).append(",")
+                    .append(escapeCSV(rfcEmisor)).append(",")
+                    .append(escapeCSV(nombreEmisor)).append(",")
+                    .append(escapeCSV(regimenFiscal)).append(",")
+                    .append(escapeCSV(rfcReceptor)).append(",")
+                    .append(escapeCSV(nombreReceptor)).append(",")
+                    .append(escapeCSV(domicilioFiscalReceptor)).append(",")
+                    .append(escapeCSV(regimenFiscalReceptor)).append(",")
+                    .append(escapeCSV(usoCFDI)).append(",")
+                    .append(escapeCSV(base.toString())).append(",")
+                    .append(escapeCSV(impuesto.toString())).append(",")
+                    .append(escapeCSV(tipoFactor.toString())).append(",")
+                    .append(escapeCSV(tasaOCuota.toString())).append(",")
+                    .append(escapeCSV(importeImpuesto.toString())).append(",")
+                    .append(escapeCSV(totalImpuestosTrasladados)).append(",")
+                    .append(escapeCSV(versionTimbre)).append(",")
+                    .append(escapeCSV(uuid)).append(",")
+                    .append(escapeCSV(fechaTimbrado)).append(",")
+                    .append(escapeCSV(noCertificadoSAT)).append("\n");
 
             // Guardar CSV
             try (PrintWriter pw = new PrintWriter(new FileWriter(new File(xmlFile.getParent(), "Factura_Procesada.csv")))) {

@@ -7,6 +7,7 @@ package conversorxmljavafx;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -47,14 +48,9 @@ public class FXMLPaginaPrincipalController implements Initializable {
         File selectedDirectory = directoryChooser.showDialog(stage);
 
         if (selectedDirectory != null) {
-            System.out.println("Carpeta seleccionada: " + selectedDirectory.getAbsolutePath());
-
             File[] xmlFiles = selectedDirectory.listFiles((dir, name) -> name.toLowerCase().endsWith(".xml"));
             if (xmlFiles != null && xmlFiles.length > 0) {
-                System.out.println("Archivos XML encontrados:");
-                for (File file : xmlFiles) {
-                    System.out.println("- " + file.getName());
-                }
+                procesarMultiplesXMLyExportarCSV(xmlFiles, selectedDirectory);
             } else {
                 System.out.println("No se encontraron archivos .xml en la carpeta seleccionada.");
             }
@@ -87,27 +83,23 @@ public class FXMLPaginaPrincipalController implements Initializable {
      */
     private void procesarXMLyExportarCSV(File xmlFile) {
         try {
-            // 1. Crear parseador XML con soporte para namespaces
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(xmlFile);
             doc.getDocumentElement().normalize();
 
-            // 2. Obtener el nodo cfdi:Comprobante (raíz)
             Element comprobante = (Element) doc.getElementsByTagName("cfdi:Comprobante").item(0);
             if (comprobante == null) {
                 System.out.println("No se encontró el nodo cfdi:Comprobante en el XML.");
                 return;
             }
 
-            // Atributos principales del comprobante
-            String fechaStr = comprobante.getAttribute("Fecha");  // Ej: "2024-10-02T13:41:14"
+            String fechaStr = comprobante.getAttribute("Fecha");  
             String folio = comprobante.getAttribute("Folio");
             String serie = comprobante.getAttribute("Serie");
-            String subTotal = comprobante.getAttribute("SubTotal"); // Ej: "194.02"
+            String subTotal = comprobante.getAttribute("SubTotal"); 
 
-            // 3. Emisor = proveedor (RFC, Nombre)
             Element emisor = (Element) doc.getElementsByTagName("cfdi:Emisor").item(0);
             String rfcEmisor = "";
             String nombreEmisor = "";
@@ -116,8 +108,6 @@ public class FXMLPaginaPrincipalController implements Initializable {
                 nombreEmisor = emisor.getAttribute("Nombre");
             }
 
-            // 4. IVA a nivel global (TotalImpuestosTrasladados) -> Ej: "31.05"
-            //    Si no existe, lo dejamos en "0"
             String ivaGlobal = "0";
             Element impuestosElement = (Element) doc.getElementsByTagName("cfdi:Impuestos").item(0);
             if (impuestosElement != null) {
@@ -127,29 +117,22 @@ public class FXMLPaginaPrincipalController implements Initializable {
                 }
             }
 
-            // 5. ISR RETENIDO, IVA RETENIDO, IEPS
-            //    (en tu ejemplo no aparecen, así que los dejamos en "0")
             String isrRetenido = "0";
             String ivaRetenido = "0";
             String ieps = "0";
 
-            // 6. Obtener la lista de cfdi:Concepto
             NodeList conceptos = doc.getElementsByTagName("cfdi:Concepto");
 
-            // 7. Dar formato a la fecha (dd/MM/yyyy)
             String fechaFormateada = formatearFecha(fechaStr);
 
-            // 8. Definir las columnas en el orden solicitado
             String[] columnas = {
                 "Fecha", "Folio", "Serie", "RFC", "Proveedor",
                 "Concepto", "Subtotal", "IVA",
                 "ISR RETENIDO", "IVA RETENIDO", "IEPS"
             };
 
-            // 9. Construir el contenido del CSV en memoria
             StringBuilder csvBuilder = new StringBuilder();
 
-            // 9.1 Fila de cabecera (solo una vez)
             for (int i = 0; i < columnas.length; i++) {
                 csvBuilder.append(escapeCSV(columnas[i]));
                 if (i < columnas.length - 1) {
@@ -158,30 +141,26 @@ public class FXMLPaginaPrincipalController implements Initializable {
             }
             csvBuilder.append("\n");
 
-            // 9.2 Por cada concepto, crear una fila nueva
             for (int i = 0; i < conceptos.getLength(); i++) {
                 Element concepto = (Element) conceptos.item(i);
-                // Solo queremos la descripción en la columna "Concepto"
+        
                 String descripcion = concepto.getAttribute("Descripcion");
 
-                // Construir la fila (misma información en columnas fijas)
-                // Orden: Fecha, Folio, Serie, RFC, Proveedor, Concepto, Subtotal, IVA, ISR, IVA RET, IEPS
                 csvBuilder
-                    .append(escapeCSV(fechaFormateada)).append(",") // Fecha
-                    .append(escapeCSV(folio)).append(",")           // Folio
-                    .append(escapeCSV(serie)).append(",")           // Serie
-                    .append(escapeCSV(rfcEmisor)).append(",")       // RFC
-                    .append(escapeCSV(nombreEmisor)).append(",")    // Proveedor
-                    .append(escapeCSV(descripcion)).append(",")     // Concepto (solo descripción)
-                    .append(escapeCSV(subTotal)).append(",")        // Subtotal
-                    .append(escapeCSV(ivaGlobal)).append(",")       // IVA
-                    .append(escapeCSV(isrRetenido)).append(",")     // ISR RETENIDO
-                    .append(escapeCSV(ivaRetenido)).append(",")     // IVA RETENIDO
-                    .append(escapeCSV(ieps))                        // IEPS
+                    .append(escapeCSV(fechaFormateada)).append(",") 
+                    .append(escapeCSV(folio)).append(",")           
+                    .append(escapeCSV(serie)).append(",")           
+                    .append(escapeCSV(rfcEmisor)).append(",")       
+                    .append(escapeCSV(nombreEmisor)).append(",")   
+                    .append(escapeCSV(descripcion)).append(",")     
+                    .append(escapeCSV(subTotal)).append(",")       
+                    .append(escapeCSV(ivaGlobal)).append(",")      
+                    .append(escapeCSV(isrRetenido)).append(",")     
+                    .append(escapeCSV(ivaRetenido)).append(",")     
+                    .append(escapeCSV(ieps))                        
                     .append("\n");
             }
 
-            // 10. Guardar el archivo CSV en la misma carpeta que el XML
             File csvFile = new File(xmlFile.getParent(), "Factura_Procesada.csv");
             try (PrintWriter pw = new PrintWriter(new FileWriter(csvFile))) {
                 pw.write(csvBuilder.toString());
@@ -225,4 +204,85 @@ public class FXMLPaginaPrincipalController implements Initializable {
             return fechaXml; // Si falla, regresamos la cadena tal cual.
         }
     }
+    
+    private void procesarMultiplesXMLyExportarCSV(File[] xmlFiles, File carpeta) {
+        StringBuilder csvBuilder = new StringBuilder();
+        String[] columnas = { "Fecha", "Folio", "Serie", "RFC", "Proveedor", "Concepto", "Subtotal", "IVA", "ISR RETENIDO", "IVA RETENIDO", "IEPS" };
+        
+        for (int i = 0; i < columnas.length; i++) {
+            csvBuilder.append(escapeCSV(columnas[i]));
+            if (i < columnas.length - 1) {
+                csvBuilder.append(",");
+            }
+        }
+        csvBuilder.append("\n");
+
+        for (File xmlFile : xmlFiles) {
+            procesarXML(xmlFile, csvBuilder);
+        }
+
+        File csvFile = new File(carpeta, "Facturas_Procesadas.csv");
+        try (PrintWriter pw = new PrintWriter(new FileWriter(csvFile))) {
+            pw.write(csvBuilder.toString());
+            System.out.println("Archivo CSV creado: " + csvFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Error al escribir el archivo CSV: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void procesarXML(File xmlFile, StringBuilder csvBuilder) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(xmlFile);
+            doc.getDocumentElement().normalize();
+
+            Element comprobante = (Element) doc.getElementsByTagName("cfdi:Comprobante").item(0);
+            if (comprobante == null) return;
+
+            String fechaStr = comprobante.getAttribute("Fecha");
+            String folio = comprobante.getAttribute("Folio");
+            String serie = comprobante.getAttribute("Serie");
+            String subTotal = comprobante.getAttribute("SubTotal");
+            
+            Element emisor = (Element) doc.getElementsByTagName("cfdi:Emisor").item(0);
+            String rfcEmisor = emisor != null ? emisor.getAttribute("Rfc") : "";
+            String nombreEmisor = emisor != null ? emisor.getAttribute("Nombre") : "";
+
+            String ivaGlobal = "0";
+            Element impuestosElement = (Element) doc.getElementsByTagName("cfdi:Impuestos").item(0);
+            if (impuestosElement != null) {
+                String totalImpTras = impuestosElement.getAttribute("TotalImpuestosTrasladados");
+                if (totalImpTras != null && !totalImpTras.isEmpty()) {
+                    ivaGlobal = totalImpTras;
+                }
+            }
+            
+            String isrRetenido = "0", ivaRetenido = "0", ieps = "0";
+            NodeList conceptos = doc.getElementsByTagName("cfdi:Concepto");
+            String fechaFormateada = formatearFecha(fechaStr);
+
+            for (int i = 0; i < conceptos.getLength(); i++) {
+                Element concepto = (Element) conceptos.item(i);
+                String descripcion = concepto.getAttribute("Descripcion");
+                
+                csvBuilder.append(escapeCSV(fechaFormateada)).append(",")
+                          .append(escapeCSV(folio)).append(",")
+                          .append(escapeCSV(serie)).append(",")
+                          .append(escapeCSV(rfcEmisor)).append(",")
+                          .append(escapeCSV(nombreEmisor)).append(",")
+                          .append(escapeCSV(descripcion)).append(",")
+                          .append(escapeCSV(subTotal)).append(",")
+                          .append(escapeCSV(ivaGlobal)).append(",")
+                          .append(escapeCSV(isrRetenido)).append(",")
+                          .append(escapeCSV(ivaRetenido)).append(",")
+                          .append(escapeCSV(ieps)).append("\n");
+            }
+        } catch (Exception e) {
+            System.out.println("Error al procesar XML " + xmlFile.getName() + ": " + e.getMessage());
+        }
+    }
+ 
 }

@@ -142,28 +142,42 @@ public class FXMLPaginaPrincipalController implements Initializable {
         String[] columnas = {"Version", "Serie", "Folio", "Fecha", "FormaPago", "NoCertificado", "SubTotal",
                 "Moneda", "TipoCambio", "Total", "TipoDeComprobante", "Exportacion", "MetodoPago", "LugarExpedicion",
                 "Rfc Emisor", "Nombre Emisor", "RegimenFiscal Emisor", "Rfc Receptor", "Nombre Receptor",
-                "DomicilioFiscalReceptor", "RegimenFiscalReceptor", "UsoCFDI", "Descripcion", "Cantidad", "ClaveUnidad",
-                "Unidad", "ValorUnitario", "Importe", "TotalImpuestosTrasladados", "Version Timbre", "UUID", "FechaTimbrado",
-                "NoCertificadoSAT" };
+                "DomicilioFiscalReceptor", "RegimenFiscalReceptor", "UsoCFDI", "ClaveProdServ", "NoIdentificacion",
+                "Cantidad", "ClaveUnidad", "Unidad", "Descripcion", "ValorUnitario", "Importe", "ObjetoImp", "Base",
+                "Impuesto", "TipoFactor", "TasaOCuota", "Importe Impuesto", "TotalImpuestosTrasladados", "Version Timbre",
+                "UUID", "FechaTimbrado", "NoCertificadoSAT"};
 
         // Encabezados
-        for (int i = 0; i < columnas.length; i++) {
-            csvBuilder.append(columnas[i]);
-            if (i < columnas.length - 1) {
-                csvBuilder.append(",");
-            }
-        }
-        csvBuilder.append("\n");
+        csvBuilder.append(String.join(",", columnas)).append("\n");
 
         // Recorrer cada concepto y agregarlo como una fila en el CSV
         for (int i = 0; i < conceptosList.getLength(); i++) {
             Element concepto = (Element) conceptosList.item(i);
-            String descripcion = concepto.getAttribute("Descripcion");
+            String claveProdServ = concepto.getAttribute("ClaveProdServ");
+            String noIdentificacion = concepto.getAttribute("NoIdentificacion");
             String cantidad = concepto.getAttribute("Cantidad");
             String claveUnidad = concepto.getAttribute("ClaveUnidad");
             String unidad = concepto.getAttribute("Unidad");
+            String descripcion = concepto.getAttribute("Descripcion");
             String valorUnitario = concepto.getAttribute("ValorUnitario");
             String importe = concepto.getAttribute("Importe");
+            String objetoImp = concepto.getAttribute("ObjetoImp");
+
+            // Extraer impuestos trasladados (si existen)
+            String base = "", impuesto = "", tipoFactor = "", tasaOCuota = "", importeImpuesto = "";
+            NodeList impuestosList = concepto.getElementsByTagName("cfdi:Impuestos");
+            if (impuestosList.getLength() > 0) {
+                Element impuestos = (Element) impuestosList.item(0);
+                NodeList trasladosList = impuestos.getElementsByTagName("cfdi:Traslado");
+                if (trasladosList.getLength() > 0) {
+                    Element traslado = (Element) trasladosList.item(0);
+                    base = traslado.getAttribute("Base");
+                    impuesto = traslado.getAttribute("Impuesto");
+                    tipoFactor = traslado.getAttribute("TipoFactor");
+                    tasaOCuota = traslado.getAttribute("TasaOCuota");
+                    importeImpuesto = traslado.getAttribute("Importe");
+                }
+            }
 
             csvBuilder.append(version).append(",")
                     .append(serie).append(",")
@@ -187,12 +201,20 @@ public class FXMLPaginaPrincipalController implements Initializable {
                     .append(domicilioFiscalReceptor).append(",")
                     .append(regimenFiscalReceptor).append(",")
                     .append(usoCFDI).append(",")
-                    .append(descripcion).append(",")
+                    .append(claveProdServ).append(",")
+                    .append(noIdentificacion).append(",")
                     .append(cantidad).append(",")
                     .append(claveUnidad).append(",")
                     .append(unidad).append(",")
+                    .append(descripcion).append(",")
                     .append(valorUnitario).append(",")
                     .append(importe).append(",")
+                    .append(objetoImp).append(",")
+                    .append(base).append(",")
+                    .append(impuesto).append(",")
+                    .append(tipoFactor).append(",")
+                    .append(tasaOCuota).append(",")
+                    .append(importeImpuesto).append(",")
                     .append(total).append(",")
                     .append(versionTimbre).append(",")
                     .append(uuid).append(",")
@@ -208,6 +230,7 @@ public class FXMLPaginaPrincipalController implements Initializable {
         e.printStackTrace();
     }
 }
+
 
     /**
      * Escapa caracteres especiales para que la cadena sea válida en CSV: - Si
